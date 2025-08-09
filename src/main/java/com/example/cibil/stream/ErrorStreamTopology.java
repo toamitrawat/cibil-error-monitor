@@ -74,7 +74,6 @@ public class ErrorStreamTopology {
         private final Logger log;
         private final String storeName;
         private KeyValueStore<String, CountAggregate> store;
-        private ProcessorContext<Void, Void> context;
         private static final long ONE_MINUTE_MS = 60_000L;
     private long lastFlushedMinuteStart = -1L; // tracks last minute start we persisted
     private boolean seenData = false; // only emit zero rows after first real data minute
@@ -86,8 +85,7 @@ public class ErrorStreamTopology {
         }
 
         @Override
-        public void init(ProcessorContext<Void, Void> context) {
-            this.context = context;
+    public void init(ProcessorContext<Void, Void> context) {
             @SuppressWarnings("unchecked")
             KeyValueStore<String, CountAggregate> kv = (KeyValueStore<String, CountAggregate>) context.getStateStore(storeName);
             this.store = kv;
@@ -131,6 +129,7 @@ public class ErrorStreamTopology {
                 double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
                 log.info("Flushing minute {} - {} ms: total={}, errors={}, errorRate={}", bucketStart, bucketEnd, agg.total, agg.errors, errorRate);
                 errorService.saveStats(java.time.Instant.ofEpochMilli(bucketStart), java.time.Instant.ofEpochMilli(bucketEnd), agg.total, agg.errors, errorRate);
+                // evaluation now uses last 5 persisted entries' averages
                 errorService.evaluateCircuitBreaker(errorRate, agg.total);
                 store.delete(Long.toString(bucketStart));
                 lastFlushedMinuteStart = bucketStart;
