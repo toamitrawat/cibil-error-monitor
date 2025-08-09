@@ -76,6 +76,8 @@ public class ErrorStreamTopology {
         private KeyValueStore<String, CountAggregate> store;
         private ProcessorContext<Void, Void> context;
         private static final long ONE_MINUTE_MS = 60_000L;
+    private long lastFlushedMinuteStart = -1L; // tracks last minute start we persisted
+    private boolean seenData = false; // only emit zero rows after first real data minute
 
         MinuteAggregationProcessor(ErrorService errorService, Logger log, String storeName) {
             this.errorService = errorService;
@@ -107,20 +109,48 @@ public class ErrorStreamTopology {
 
         private void flushCompleted(long nowTs) {
             long currentMinuteStart = nowTs - (nowTs % ONE_MINUTE_MS);
+            // We'll collect minutes with data to flush first (actual counts)
+            java.util.List<Long> toFlush = new java.util.ArrayList<>();
             try (KeyValueIterator<String, CountAggregate> iter = store.all()) {
                 while (iter.hasNext()) {
                     KeyValue<String, CountAggregate> entry = iter.next();
                     long bucketStart = Long.parseLong(entry.key);
-                    if (bucketStart < currentMinuteStart) {
-                        long bucketEnd = bucketStart + ONE_MINUTE_MS;
-                        CountAggregate agg = entry.value;
-                        double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
-                        log.info("Flushing minute {} - {} ms: total={}, errors={}, errorRate={}", bucketStart, bucketEnd, agg.total, agg.errors, errorRate);
-                        errorService.saveStats(java.time.Instant.ofEpochMilli(bucketStart), java.time.Instant.ofEpochMilli(bucketEnd), agg.total, agg.errors, errorRate);
-                        errorService.evaluateCircuitBreaker(errorRate, agg.total);
-                        store.delete(entry.key);
-                    }
+                    if (bucketStart < currentMinuteStart) toFlush.add(bucketStart);
                 }
+            }
+            if (toFlush.isEmpty()) {
+                // Possibly emit zero rows for gaps after prior data
+                emitZeroGaps(currentMinuteStart);
+                return;
+            }
+            java.util.Collections.sort(toFlush);
+            for (Long bucketStart : toFlush) {
+                CountAggregate agg = store.get(Long.toString(bucketStart));
+                if (agg == null) continue; // defensive
+                long bucketEnd = bucketStart + ONE_MINUTE_MS;
+                double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
+                log.info("Flushing minute {} - {} ms: total={}, errors={}, errorRate={}", bucketStart, bucketEnd, agg.total, agg.errors, errorRate);
+                errorService.saveStats(java.time.Instant.ofEpochMilli(bucketStart), java.time.Instant.ofEpochMilli(bucketEnd), agg.total, agg.errors, errorRate);
+                errorService.evaluateCircuitBreaker(errorRate, agg.total);
+                store.delete(Long.toString(bucketStart));
+                lastFlushedMinuteStart = bucketStart;
+                seenData = true;
+            }
+            // After flushing real data minutes, emit zero gaps up to (but excluding) current active minute
+            emitZeroGaps(currentMinuteStart);
+        }
+
+        private void emitZeroGaps(long currentMinuteStart) {
+            if (!seenData || lastFlushedMinuteStart < 0) return; // don't create zeros before first data
+            long nextMinute = lastFlushedMinuteStart + ONE_MINUTE_MS;
+            long lastComplete = currentMinuteStart - ONE_MINUTE_MS;
+            while (nextMinute <= lastComplete) {
+                long bucketEnd = nextMinute + ONE_MINUTE_MS;
+                log.info("Flushing empty minute {} - {} ms: total=0, errors=0, errorRate=0.0", nextMinute, bucketEnd);
+                errorService.saveStats(java.time.Instant.ofEpochMilli(nextMinute), java.time.Instant.ofEpochMilli(bucketEnd), 0L, 0L, 0.0);
+                // Skip circuit breaker evaluation for empty minutes (no traffic)
+                lastFlushedMinuteStart = nextMinute;
+                nextMinute += ONE_MINUTE_MS;
             }
         }
 
