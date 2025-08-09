@@ -24,7 +24,7 @@ spring:
 logging:
   level:
     root: INFO
-  "com.example": DEBUG
+    com.example: DEBUG
 
 management:
   endpoints:
@@ -43,4 +43,4 @@ app:
       error-rate: 50.0
       min-total: 10
   kafka:
-    error-topic: Error-topic
+    error-topic: error-monitor-events
