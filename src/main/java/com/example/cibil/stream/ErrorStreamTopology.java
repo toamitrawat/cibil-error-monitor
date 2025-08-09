@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.springframework.stereotype.Component;
 
@@ -36,7 +37,7 @@ public class ErrorStreamTopology {
 
         // Global grouping - single key
         statuses
-            .map((k, v) -> KeyValue.pair("global", v))
+            .map((String k, String v) -> KeyValue.pair("global", v))
             .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))
             // 5 minute window, 0 grace (no late arrivals), advance by 1 minute for sliding effect
             .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofMinutes(5), Duration.ZERO).advanceBy(Duration.ofMinutes(1)))
@@ -54,8 +55,8 @@ public class ErrorStreamTopology {
                 double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
 
                 // Persist stats
-                errorService.saveStats(windowedKey.window().startTime().toInstant(),
-                        windowedKey.window().endTime().toInstant(), agg.total, agg.errors, errorRate);
+        errorService.saveStats(windowedKey.window().startTime(),
+            windowedKey.window().endTime(), agg.total, agg.errors, errorRate);
 
                 // Evaluate circuit breaker
                 errorService.evaluateCircuitBreaker(errorRate);
