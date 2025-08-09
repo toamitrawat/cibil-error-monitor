@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  cibil-error-monitor:
+    build: .
+    image: cibil-error-monitor:latest
+    container_name: cibil-error-monitor
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - kafka-net
+    depends_on:
+      - kafka-kafka-1
+      - oracle-xe
+    restart: unless-stopped
+
+networks:
+  kafka-net:
+    external: true
