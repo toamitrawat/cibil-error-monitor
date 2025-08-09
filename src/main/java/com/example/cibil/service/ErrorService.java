@@ -9,11 +9,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class ErrorService {
+
+    private static final Logger logger = LogManager.getLogger(ErrorService.class);
 
     private final CircuitBreakerRepository cbRepo;
     private final ErrorStatsRepository statsRepo;
@@ -29,6 +32,7 @@ public class ErrorService {
 
     @Transactional
     public void saveStats(Instant start, Instant end, long total, long errors, double rate) {
+    logger.info("Saving error stats: start={}, end={}, total={}, errors={}, rate={}", start, end, total, errors, rate);
         ErrorStats stats = new ErrorStats();
         stats.setStartTime(start);
         stats.setEndTime(end);
@@ -37,14 +41,17 @@ public class ErrorService {
         stats.setErrorRate(rate);
         stats.setCreatedTime(Instant.now());
         statsRepo.save(stats);
+    logger.debug("ErrorStats saved: {}", stats);
     }
 
     @Transactional
     public void evaluateCircuitBreaker(double errorRate, long total) {
+        logger.info("Evaluating circuit breaker: errorRate={}, total={}, flag={}", errorRate, total, flag.get());
         Instant now = Instant.now();
 
         boolean current = flag.get();
         if (!current && errorRate > 50.0 && total > 10) {
+            logger.warn("Circuit breaker tripped! errorRate={}, total={}", errorRate, total);
             // trip circuit
             flag.set(true);
             lastFlagChange.set(now);
@@ -63,9 +70,11 @@ public class ErrorService {
     }
 
     private void insertCircuitBreakerStatus(boolean flagValue, Instant ts) {
+    logger.info("Inserting circuit breaker status: flag={}, timestamp={}", flagValue, ts);
         CircuitBreakerStatus cb = new CircuitBreakerStatus();
         cb.setFlag(flagValue ? "Y" : "N");
         cb.setTimestamp(ts);
         cbRepo.save(cb);
+    logger.debug("CircuitBreakerStatus inserted: {}", cb);
     }
 }
