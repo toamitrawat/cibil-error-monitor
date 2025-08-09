@@ -42,3 +42,5 @@ app:
     threshold:
       error-rate: 50.0
       min-total: 10
+  kafka:
+    error-topic: Error-topic

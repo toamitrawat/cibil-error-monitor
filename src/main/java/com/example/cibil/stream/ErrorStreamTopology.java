@@ -8,6 +8,7 @@ import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +22,14 @@ public class ErrorStreamTopology {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ErrorService errorService;
 
+    @Value("${app.kafka.error-topic:Error-topic}")
+    private String errorTopic;
+
     private static final Logger logger = LogManager.getLogger(ErrorStreamTopology.class);
 
     public void build(StreamsBuilder builder) {
     logger.info("Building error stream topology");
-        KStream<String, String> source = builder.stream("Error-topic", Consumed.with(Serdes.String(), Serdes.String()));
+    KStream<String, String> source = builder.stream(errorTopic, Consumed.with(Serdes.String(), Serdes.String()));
 
         KStream<String, String> statuses = source
             .mapValues(v -> {
