@@ -63,16 +63,16 @@ public class ErrorService {
             logger.debug("Not enough data points yet for circuit breaker evaluation. size={}", lastFive.size());
             return; // need full 5 entries to evaluate
         }
-        // Compute averages across the 5 entries
-        double avgErrorRate = lastFive.stream()
-            .mapToDouble(es -> es.getErrorRate() != null ? es.getErrorRate() : 0.0)
-            .average().orElse(0.0);
+        long sumErrors = lastFive.stream()
+            .mapToLong(es -> es.getErrorCount() != null ? es.getErrorCount() : 0L)
+            .sum();
         long sumTotal = lastFive.stream()
             .mapToLong(es -> es.getTotalMessage() != null ? es.getTotalMessage() : 0L)
             .sum();
+        double avgErrorRate = sumTotal > 0 ? (sumErrors * 100.0 / sumTotal) : 0.0;
 
-        logger.info("Evaluating circuit breaker (last5): avgErrorRate={}, sumTotal={}, configuredTripRate={}, minTotal(sumThreshold)={}, currentFlag={}",
-            avgErrorRate, sumTotal, tripErrorRate, minTotal, flag.get());
+        logger.info("Evaluating circuit breaker (last5 sums): sumErrors={}, sumTotal={}, computedAvgErrorRate={}, thresholds(errorRate>{}, total>{}), currentFlag={}",
+            sumErrors, sumTotal, avgErrorRate, tripErrorRate, minTotal, flag.get());
 
         Instant now = Instant.now();
         boolean current = flag.get();
