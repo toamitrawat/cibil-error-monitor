@@ -15,8 +15,7 @@ import lombok.Builder;
 @Builder
 public class CircuitBreakerStatus {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "cb_status_seq_gen")
-    @SequenceGenerator(name = "cb_status_seq_gen", sequenceName = "CB_STATUS_SEQ", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "seqnum")
     private Long seqnum;
 
