@@ -59,7 +59,7 @@ public class ErrorStreamTopology {
             windowedKey.window().endTime(), agg.total, agg.errors, errorRate);
 
                 // Evaluate circuit breaker
-                errorService.evaluateCircuitBreaker(errorRate);
+                errorService.evaluateCircuitBreaker(errorRate, agg.total);
             });
     }
 }

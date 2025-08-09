@@ -40,11 +40,11 @@ public class ErrorService {
     }
 
     @Transactional
-    public void evaluateCircuitBreaker(double errorRate) {
+    public void evaluateCircuitBreaker(double errorRate, long total) {
         Instant now = Instant.now();
 
         boolean current = flag.get();
-        if (!current && errorRate > 50.0) {
+        if (!current && errorRate > 50.0 && total > 10) {
             // trip circuit
             flag.set(true);
             lastFlagChange.set(now);
