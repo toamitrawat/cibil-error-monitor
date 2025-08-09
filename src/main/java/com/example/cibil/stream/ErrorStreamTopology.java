@@ -76,7 +76,6 @@ public class ErrorStreamTopology {
         private KeyValueStore<String, CountAggregate> store;
         private static final long ONE_MINUTE_MS = 60_000L;
     private long lastFlushedMinuteStart = -1L; // tracks last minute start we persisted
-    private boolean seenData = false; // only emit zero rows after first real data minute
 
         MinuteAggregationProcessor(ErrorService errorService, Logger log, String storeName) {
             this.errorService = errorService;
@@ -133,21 +132,25 @@ public class ErrorStreamTopology {
                 errorService.evaluateCircuitBreaker(errorRate, agg.total);
                 store.delete(Long.toString(bucketStart));
                 lastFlushedMinuteStart = bucketStart;
-                seenData = true;
             }
             // After flushing real data minutes, emit zero gaps up to (but excluding) current active minute
             emitZeroGaps(currentMinuteStart);
         }
 
         private void emitZeroGaps(long currentMinuteStart) {
-            if (!seenData || lastFlushedMinuteStart < 0) return; // don't create zeros before first data
-            long nextMinute = lastFlushedMinuteStart + ONE_MINUTE_MS;
-            long lastComplete = currentMinuteStart - ONE_MINUTE_MS;
+            long lastComplete = currentMinuteStart - ONE_MINUTE_MS; // last fully completed minute
+            if (lastComplete < 0) return;
+            long nextMinute;
+            if (lastFlushedMinuteStart < 0) {
+                // First run with no prior data persisted: start at lastComplete only
+                nextMinute = lastComplete;
+            } else {
+                nextMinute = lastFlushedMinuteStart + ONE_MINUTE_MS;
+            }
             while (nextMinute <= lastComplete) {
                 long bucketEnd = nextMinute + ONE_MINUTE_MS;
                 log.info("Flushing empty minute {} - {} ms: total=0, errors=0, errorRate=0.0", nextMinute, bucketEnd);
                 errorService.saveStats(java.time.Instant.ofEpochMilli(nextMinute), java.time.Instant.ofEpochMilli(bucketEnd), 0L, 0L, 0.0);
-                // Skip circuit breaker evaluation for empty minutes (no traffic)
                 lastFlushedMinuteStart = nextMinute;
                 nextMinute += ONE_MINUTE_MS;
             }
