@@ -39,6 +39,16 @@ public class ErrorStreamTopology {
         logger.info("Building error stream topology (custom minute aggregation)");
         KStream<String, String> source = builder.stream(errorTopic, Consumed.with(Serdes.String(), Serdes.String()));
 
+        // Repartition to a SINGLE partition so only one active task across the cluster performs
+        // minute aggregation + DB writes (prevents duplicate rows when scaling pods)
+        KStream<String, String> singlePartition = source
+            .selectKey((k, v) -> "ALL")
+            .repartition(Repartitioned.
+                <String, String>as("error-monitor-single-part")
+                .withKeySerde(Serdes.String())
+                .withValueSerde(Serdes.String())
+                .withNumberOfPartitions(1));
+
         // State store to hold per-minute aggregate (key = minuteStartEpochMillis as String)
         final String STORE_NAME = "minute-aggregate-store";
         StoreBuilder<KeyValueStore<String, CountAggregate>> storeBuilder = Stores.keyValueStoreBuilder(
@@ -48,7 +58,7 @@ public class ErrorStreamTopology {
         );
         builder.addStateStore(storeBuilder);
 
-        source
+    singlePartition
             .mapValues(v -> {
                 try {
                     JsonNode root = mapper.readTree(v);

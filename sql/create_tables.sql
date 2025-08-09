@@ -15,3 +15,6 @@ CREATE TABLE error_stats (
   error_rate NUMBER(5,2),
   created_time TIMESTAMP
 );
+
+-- Optional: enforce uniqueness so only one row per minute (enable manually if desired)
+-- CREATE UNIQUE INDEX ux_error_stats_start_time ON error_stats(start_time);
