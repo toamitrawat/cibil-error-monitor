@@ -2,7 +2,7 @@ spring:
   application:
     name: cibil-error-monitor
   kafka:
-    bootstrap-servers: kafka-kafka-1:9092
+    bootstrap-servers: kafka:9092
     streams:
       application-id: cibil-error-monitor-app
       properties:
@@ -19,7 +19,7 @@ spring:
       ddl-auto: none
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.Oracle12cDialect
+        dialect: org.hibernate.dialect.OracleDialect
 
 logging:
   level:
