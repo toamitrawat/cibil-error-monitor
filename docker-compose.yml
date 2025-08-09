@@ -8,9 +8,6 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
     networks:
       - kafka-net
-    depends_on:
-      - kafka-kafka-1
-      - oracle-xe
     restart: unless-stopped
 
 networks:
