@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.kstream.Suppressed.BufferConfig;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.springframework.stereotype.Component;
@@ -61,6 +62,8 @@ public class ErrorStreamTopology {
                 },
                 Materialized.with(Serdes.String(), new JsonSerde<>(CountAggregate.class))
             )
+            // Suppress intermediate (in-flight) results; emit only once when the window closes
+            .suppress(Suppressed.untilWindowCloses(BufferConfig.unbounded()))
             .toStream()
             .foreach((windowedKey, agg) -> {
                 double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
