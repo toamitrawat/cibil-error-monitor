@@ -49,8 +49,8 @@ public class ErrorStreamTopology {
         statuses
             .map((String k, String v) -> KeyValue.pair("global", v))
             .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))
-            // 5 minute window, 0 grace (no late arrivals), advance by 1 minute for sliding effect
-            .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofMinutes(5), Duration.ZERO).advanceBy(Duration.ofMinutes(1)))
+            // 5 minute tumbling window (non-overlapping). Removed advanceBy to avoid counting the same event in multiple windows.
+            .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofMinutes(5), Duration.ZERO))
             .aggregate(
                 CountAggregate::new,
                 (key, status, agg) -> {
