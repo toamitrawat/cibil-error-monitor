@@ -3,10 +3,12 @@ package com.example.cibil.config;
 import com.example.cibil.stream.ErrorStreamTopology;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.StreamsConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.config.KafkaStreamsCustomizer;
+import com.example.cibil.stream.handler.LoggingContinueDeserializationExceptionHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -34,6 +36,20 @@ public class KafkaStreamsConfig {
                 logger.error("Uncaught exception in Kafka Streams", ex);
                 return org.apache.kafka.streams.errors.StreamsUncaughtExceptionHandler.StreamThreadExceptionResponse.SHUTDOWN_APPLICATION;
             });
+            // Ensure our custom deserialization handler is in place (defensive, also set via properties if provided)
+            streams.cleanUp(); // optional: ensure state consistency on handler change (remove if not desired)
+        };
+    }
+
+    @Bean(name = "kafkaStreamsConfigurationCustomizer")
+    public org.springframework.kafka.config.StreamsBuilderFactoryBeanConfigurer streamsBuilderFactoryBeanConfigurer() {
+        return factoryBean -> {
+            // mutate the underlying configuration map before Streams is started
+            java.util.Properties props = factoryBean.getStreamsConfiguration();
+            if (props != null) {
+                props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
+                    LoggingContinueDeserializationExceptionHandler.class.getName());
+            }
         };
     }
 }
