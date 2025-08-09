@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: cibil-error-monitor
+  kafka:
+    bootstrap-servers: localhost:9092
+    streams:
+      application-id: cibil-error-monitor-app
+      properties:
+        commit.interval.ms: 1000
+
+  datasource:
+    url: jdbc:oracle:thin:@//YOUR_ORACLE_HOST:1521/YOUR_SERVICE_NAME
+    username: YOUR_DB_USER
+    password: YOUR_DB_PASSWORD
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.Oracle12cDialect
+
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
