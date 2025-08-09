@@ -1,7 +1,7 @@
 package com.example.cibil.entity;
 
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -24,5 +24,5 @@ public class CircuitBreakerStatus {
     private String flag; // 'Y' or 'N'
 
     @Column(name = "timestamp")
-    private Instant timestamp;
+    private OffsetDateTime timestamp;
 }

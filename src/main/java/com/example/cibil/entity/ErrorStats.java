@@ -1,7 +1,7 @@
 package com.example.cibil.entity;
 
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -18,10 +18,10 @@ public class ErrorStats {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Instant startTime;
-    private Instant endTime;
+    private OffsetDateTime startTime;
+    private OffsetDateTime endTime;
     private Long totalMessage;
     private Long errorCount;
     private Double errorRate;
-    private Instant createdTime;
+    private OffsetDateTime createdTime;
 }

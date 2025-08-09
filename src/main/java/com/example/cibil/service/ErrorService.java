@@ -12,6 +12,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -37,14 +39,17 @@ public class ErrorService {
 
     @Transactional
     public void saveStats(Instant start, Instant end, long total, long errors, double rate) {
-    logger.info("Saving error stats: start={}, end={}, total={}, errors={}, rate={}", start, end, total, errors, rate);
-        ErrorStats stats = new ErrorStats();
-        stats.setStartTime(start);
-        stats.setEndTime(end);
+    ZoneId ist = ZoneId.of("Asia/Kolkata");
+    OffsetDateTime startIst = OffsetDateTime.ofInstant(start, ist);
+    OffsetDateTime endIst = OffsetDateTime.ofInstant(end, ist);
+    logger.info("Saving error stats (IST): start={}, end={}, total={}, errors={}, rate={}", startIst, endIst, total, errors, rate);
+    ErrorStats stats = new ErrorStats();
+    stats.setStartTime(startIst);
+    stats.setEndTime(endIst);
         stats.setTotalMessage(total);
         stats.setErrorCount(errors);
         stats.setErrorRate(rate);
-        stats.setCreatedTime(Instant.now());
+    stats.setCreatedTime(OffsetDateTime.ofInstant(Instant.now(), ist));
         statsRepo.save(stats);
     logger.debug("ErrorStats saved: {}", stats);
     }
@@ -75,10 +80,12 @@ public class ErrorService {
     }
 
     private void insertCircuitBreakerStatus(boolean flagValue, Instant ts) {
-    logger.info("Inserting circuit breaker status: flag={}, timestamp={}", flagValue, ts);
-        CircuitBreakerStatus cb = new CircuitBreakerStatus();
-        cb.setFlag(flagValue ? "Y" : "N");
-        cb.setTimestamp(ts);
+    ZoneId ist = ZoneId.of("Asia/Kolkata");
+    OffsetDateTime tsIst = OffsetDateTime.ofInstant(ts, ist);
+    logger.info("Inserting circuit breaker status (IST): flag={}, timestamp={}", flagValue, tsIst);
+    CircuitBreakerStatus cb = new CircuitBreakerStatus();
+    cb.setFlag(flagValue ? "Y" : "N");
+    cb.setTimestamp(tsIst);
         cbRepo.save(cb);
     logger.debug("CircuitBreakerStatus inserted: {}", cb);
     }
