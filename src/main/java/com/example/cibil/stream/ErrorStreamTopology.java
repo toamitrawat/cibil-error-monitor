@@ -33,6 +33,12 @@ public class ErrorStreamTopology {
     @Value("${app.kafka.error-topic:Error-topic}")
     private String errorTopic;
 
+    @Value("${app.db.retry.max-attempts:3}")
+    private int dbRetryMaxAttempts;
+
+    @Value("${app.db.retry.backoff-ms:500}")
+    private long dbRetryBackoffMs;
+
     private static final Logger logger = LogManager.getLogger(ErrorStreamTopology.class);
 
     public void build(StreamsBuilder builder) {
@@ -71,7 +77,7 @@ public class ErrorStreamTopology {
                     return "PARSE_ERROR";
                 }
             })
-            .process(() -> new MinuteAggregationProcessor(errorService, logger, STORE_NAME), STORE_NAME);
+            .process(() -> new MinuteAggregationProcessor(errorService, logger, STORE_NAME, dbRetryMaxAttempts, dbRetryBackoffMs), STORE_NAME);
     }
 
     /**
@@ -83,14 +89,18 @@ public class ErrorStreamTopology {
         private final ErrorService errorService;
         private final Logger log;
         private final String storeName;
+        private final int maxAttempts;
+        private final long backoffMs;
         private KeyValueStore<String, CountAggregate> store;
         private static final long ONE_MINUTE_MS = 60_000L;
     private long lastFlushedMinuteStart = -1L; // tracks last minute start we persisted
 
-        MinuteAggregationProcessor(ErrorService errorService, Logger log, String storeName) {
+        MinuteAggregationProcessor(ErrorService errorService, Logger log, String storeName, int maxAttempts, long backoffMs) {
             this.errorService = errorService;
             this.log = log;
             this.storeName = storeName;
+            this.maxAttempts = maxAttempts;
+            this.backoffMs = backoffMs;
         }
 
         @Override
@@ -137,9 +147,9 @@ public class ErrorStreamTopology {
                 long bucketEnd = bucketStart + ONE_MINUTE_MS;
                 double errorRate = agg.total > 0 ? (agg.errors * 100.0 / agg.total) : 0.0;
                 log.info("Flushing minute {} - {} ms: total={}, errors={}, errorRate={}", bucketStart, bucketEnd, agg.total, agg.errors, errorRate);
-                errorService.saveStats(java.time.Instant.ofEpochMilli(bucketStart), java.time.Instant.ofEpochMilli(bucketEnd), agg.total, agg.errors, errorRate);
-                // evaluation now uses last 5 persisted entries' averages
-                errorService.evaluateCircuitBreaker(errorRate, agg.total);
+                runWithRetry("saveStats", () -> errorService.saveStats(java.time.Instant.ofEpochMilli(bucketStart), java.time.Instant.ofEpochMilli(bucketEnd), agg.total, agg.errors, errorRate));
+                // evaluation now uses last 5 persisted entries' averages; retry separately so a breaker failure doesn't duplicate stats
+                runWithRetry("evaluateCircuitBreaker", () -> errorService.evaluateCircuitBreaker(errorRate, agg.total));
                 store.delete(Long.toString(bucketStart));
                 lastFlushedMinuteStart = bucketStart;
             }
@@ -158,11 +168,40 @@ public class ErrorStreamTopology {
                 nextMinute = lastFlushedMinuteStart + ONE_MINUTE_MS;
             }
             while (nextMinute <= lastComplete) {
-                long bucketEnd = nextMinute + ONE_MINUTE_MS;
-                log.info("Flushing empty minute {} - {} ms: total=0, errors=0, errorRate=0.0", nextMinute, bucketEnd);
-                errorService.saveStats(java.time.Instant.ofEpochMilli(nextMinute), java.time.Instant.ofEpochMilli(bucketEnd), 0L, 0L, 0.0);
-                lastFlushedMinuteStart = nextMinute;
+                long nm = nextMinute; // effectively final copy for lambda
+                long bucketEnd = nm + ONE_MINUTE_MS;
+                log.info("Flushing empty minute {} - {} ms: total=0, errors=0, errorRate=0.0", nm, bucketEnd);
+                runWithRetry("saveStatsZeroMinute", () -> errorService.saveStats(java.time.Instant.ofEpochMilli(nm), java.time.Instant.ofEpochMilli(bucketEnd), 0L, 0L, 0.0));
+                lastFlushedMinuteStart = nm;
                 nextMinute += ONE_MINUTE_MS;
+            }
+        }
+
+        private void runWithRetry(String label, Runnable action) {
+            int attempt = 1;
+            while (true) {
+                try {
+                    action.run();
+                    if (attempt > 1) {
+                        log.warn("DB action '{}' succeeded on attempt {}", label, attempt);
+                    }
+                    return;
+                } catch (Exception e) {
+                    if (attempt >= maxAttempts) {
+                        log.error("DB action '{}' failed after {} attempts; giving up. Error: {}", label, attempt, e.getMessage(), e);
+                        return; // swallow to prevent app crash
+                    }
+                    long sleep = backoffMs * attempt; // simple linear backoff
+                    log.warn("DB action '{}' failed on attempt {}/{}; retrying in {} ms. Error: {}", label, attempt, maxAttempts, sleep, e.getMessage());
+                    try {
+                        Thread.sleep(sleep);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("Retry sleep interrupted for action '{}'", label, ie);
+                        return;
+                    }
+                    attempt++;
+                }
             }
         }
 
