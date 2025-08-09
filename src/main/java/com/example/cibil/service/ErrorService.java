@@ -67,17 +67,17 @@ public class ErrorService {
         double avgErrorRate = lastFive.stream()
             .mapToDouble(es -> es.getErrorRate() != null ? es.getErrorRate() : 0.0)
             .average().orElse(0.0);
-        double avgTotal = lastFive.stream()
+        long sumTotal = lastFive.stream()
             .mapToLong(es -> es.getTotalMessage() != null ? es.getTotalMessage() : 0L)
-            .average().orElse(0.0);
+            .sum();
 
-        logger.info("Evaluating circuit breaker (last5 avg): avgErrorRate={}, avgTotal={}, configuredTripRate={}, minTotal={}, currentFlag={}",
-            avgErrorRate, avgTotal, tripErrorRate, minTotal, flag.get());
+        logger.info("Evaluating circuit breaker (last5): avgErrorRate={}, sumTotal={}, configuredTripRate={}, minTotal(sumThreshold)={}, currentFlag={}",
+            avgErrorRate, sumTotal, tripErrorRate, minTotal, flag.get());
 
         Instant now = Instant.now();
         boolean current = flag.get();
-        if (!current && avgErrorRate > tripErrorRate && avgTotal > minTotal) {
-            logger.warn("Circuit breaker tripped based on last 5 averages! avgErrorRate={}, avgTotal={}", avgErrorRate, avgTotal);
+        if (!current && avgErrorRate > tripErrorRate && sumTotal > minTotal) {
+            logger.warn("Circuit breaker tripped based on last 5 intervals! avgErrorRate={}, sumTotal={}", avgErrorRate, sumTotal);
             flag.set(true);
             lastFlagChange.set(now);
             insertCircuitBreakerStatus(true, now);
