@@ -10,23 +10,21 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 @Component
+@RequiredArgsConstructor
 public class ErrorStreamTopology {
-
-    private static final Logger logger = LogManager.getLogger(ErrorStreamTopology.class);
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final ErrorService errorService;
 
-    public ErrorStreamTopology(ErrorService errorService) {
-        this.errorService = errorService;
-    }
+    private static final Logger logger = LogManager.getLogger(ErrorStreamTopology.class);
 
     public void build(StreamsBuilder builder) {
-        logger.info("Building error stream topology");
+    logger.info("Building error stream topology");
         KStream<String, String> source = builder.stream("Error-topic", Consumed.with(Serdes.String(), Serdes.String()));
 
         KStream<String, String> statuses = source
@@ -43,7 +41,7 @@ public class ErrorStreamTopology {
             });
 
         // Global grouping - single key
-        logger.info("Grouping statuses and starting aggregation");
+    logger.info("Grouping statuses and starting aggregation");
         statuses
             .map((String k, String v) -> KeyValue.pair("global", v))
             .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))

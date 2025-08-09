@@ -2,11 +2,21 @@ package com.example.cibil.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 @Entity
 @Table(name = "circuitbreaker_status")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class CircuitBreakerStatus {
     @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "cb_status_seq_gen")
+    @SequenceGenerator(name = "cb_status_seq_gen", sequenceName = "CB_STATUS_SEQ", allocationSize = 1)
     @Column(name = "seqnum")
     private Long seqnum;
 
@@ -15,11 +25,4 @@ public class CircuitBreakerStatus {
 
     @Column(name = "timestamp")
     private Instant timestamp;
-
-    public Long getSeqnum() { return seqnum; }
-    public void setSeqnum(Long seqnum) { this.seqnum = seqnum; }
-    public String getFlag() { return flag; }
-    public void setFlag(String flag) { this.flag = flag; }
-    public Instant getTimestamp() { return timestamp; }
-    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 }

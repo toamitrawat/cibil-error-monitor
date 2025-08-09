@@ -7,6 +7,8 @@ spring:
       application-id: cibil-error-monitor-app
       properties:
         commit.interval.ms: 1000
+  default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+  default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
 
   datasource:
     url: jdbc:oracle:thin:@//oracle-xe:1521/XEPDB1
@@ -22,4 +24,21 @@ spring:
 logging:
   level:
     root: INFO
-    com.example: DEBUG
+  "com.example": DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  show-details: when-authorized
+
+app:
+  circuit:
+    threshold:
+      error-rate: 50.0
+      min-total: 10

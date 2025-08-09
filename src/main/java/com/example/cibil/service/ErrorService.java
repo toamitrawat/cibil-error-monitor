@@ -4,31 +4,36 @@ import com.example.cibil.entity.CircuitBreakerStatus;
 import com.example.cibil.entity.ErrorStats;
 import com.example.cibil.repo.CircuitBreakerRepository;
 import com.example.cibil.repo.ErrorStatsRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
+@RequiredArgsConstructor
 public class ErrorService {
-
-    private static final Logger logger = LogManager.getLogger(ErrorService.class);
 
     private final CircuitBreakerRepository cbRepo;
     private final ErrorStatsRepository statsRepo;
+
+    private static final Logger logger = LogManager.getLogger(ErrorService.class);
 
     // track in-memory state for the flag and last change time
     private final AtomicReference<Boolean> flag = new AtomicReference<>(false);
     private final AtomicReference<Instant> lastFlagChange = new AtomicReference<>(Instant.EPOCH);
 
-    public ErrorService(CircuitBreakerRepository cbRepo, ErrorStatsRepository statsRepo) {
-        this.cbRepo = cbRepo;
-        this.statsRepo = statsRepo;
-    }
+    @Value("${app.circuit.threshold.error-rate:50.0}")
+    private double tripErrorRate;
+
+    @Value("${app.circuit.threshold.min-total:10}")
+    private long minTotal;
+
+    // Lombok @RequiredArgsConstructor generates constructor
 
     @Transactional
     public void saveStats(Instant start, Instant end, long total, long errors, double rate) {
@@ -46,12 +51,12 @@ public class ErrorService {
 
     @Transactional
     public void evaluateCircuitBreaker(double errorRate, long total) {
-        logger.info("Evaluating circuit breaker: errorRate={}, total={}, flag={}", errorRate, total, flag.get());
+    logger.info("Evaluating circuit breaker: errorRate={}, total={}, flag={}", errorRate, total, flag.get());
         Instant now = Instant.now();
 
         boolean current = flag.get();
-        if (!current && errorRate > 50.0 && total > 10) {
-            logger.warn("Circuit breaker tripped! errorRate={}, total={}", errorRate, total);
+        if (!current && errorRate > tripErrorRate && total > minTotal) {
+            logger.warn("Circuit breaker tripped! errorRate={}, total={}, configuredTripRate={}, minTotal={}", errorRate, total, tripErrorRate, minTotal);
             // trip circuit
             flag.set(true);
             lastFlagChange.set(now);
