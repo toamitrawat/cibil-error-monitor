@@ -20,8 +20,8 @@ import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 @RequiredArgsConstructor
@@ -39,7 +39,7 @@ public class ErrorStreamTopology {
     @Value("${app.db.retry.backoff-ms:500}")
     private long dbRetryBackoffMs;
 
-    private static final Logger logger = LogManager.getLogger(ErrorStreamTopology.class);
+    private static final Logger logger = LoggerFactory.getLogger(ErrorStreamTopology.class);
 
     public void build(StreamsBuilder builder) {
         logger.info("Building error stream topology (custom minute aggregation)");
@@ -87,7 +87,7 @@ public class ErrorStreamTopology {
      */
     static class MinuteAggregationProcessor implements Processor<String,String, Void, Void> {
         private final ErrorService errorService;
-        private final Logger log;
+    private final Logger log;
         private final String storeName;
         private final int maxAttempts;
         private final long backoffMs;

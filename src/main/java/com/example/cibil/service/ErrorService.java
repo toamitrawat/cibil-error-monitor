@@ -8,8 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -24,7 +24,7 @@ public class ErrorService {
     private final CircuitBreakerRepository cbRepo;
     private final ErrorStatsRepository statsRepo;
 
-    private static final Logger logger = LogManager.getLogger(ErrorService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ErrorService.class);
 
     // track in-memory state for the flag and last change time
     private final AtomicReference<Boolean> flag = new AtomicReference<>(false);

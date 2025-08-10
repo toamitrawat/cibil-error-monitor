@@ -4,8 +4,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.streams.errors.DeserializationExceptionHandler;
 import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.common.header.Headers;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
@@ -15,7 +15,7 @@ import java.util.Map;
  */
 public class LoggingContinueDeserializationExceptionHandler implements DeserializationExceptionHandler {
 
-    private static final Logger logger = LogManager.getLogger(LoggingContinueDeserializationExceptionHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(LoggingContinueDeserializationExceptionHandler.class);
 
     @Override
     public void configure(Map<String, ?> configs) {

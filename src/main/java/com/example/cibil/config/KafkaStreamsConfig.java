@@ -9,14 +9,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.config.KafkaStreamsCustomizer;
 import com.example.cibil.stream.handler.LoggingContinueDeserializationExceptionHandler;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Configuration
 @EnableKafkaStreams
 public class KafkaStreamsConfig {
 
-    private static final Logger logger = LogManager.getLogger(KafkaStreamsConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(KafkaStreamsConfig.class);
 
     // Spring will create the default StreamsBuilder based on spring.kafka.* properties.
     // We just hook in our topology definition.
