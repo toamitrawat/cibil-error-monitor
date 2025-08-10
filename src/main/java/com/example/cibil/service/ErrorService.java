@@ -82,7 +82,24 @@ public class ErrorService {
             lastFlagChange.set(now);
             insertCircuitBreakerStatus(true, now);
         }
-        // (Optional) Add reset logic later if needed
+        // Reset logic: if currently tripped, at least 15 minutes since last 'Y', and conditions recovered
+        if (current) {
+            CircuitBreakerStatus lastY = cbRepo.findTop1ByFlagOrderByTimestampDesc("Y");
+            if (lastY != null && lastY.getTimestamp() != null) {
+                Instant lastTrip = lastY.getTimestamp().toInstant();
+                long minutesSinceTrip = java.time.Duration.between(lastTrip, now).toMinutes();
+                if (minutesSinceTrip >= 15) {
+                    if (avgErrorRate < 5.0 && sumTotal > minTotal) {
+                        logger.info("Circuit breaker reset after {} minutes: avgErrorRate={}, sumTotal={}", minutesSinceTrip, avgErrorRate, sumTotal);
+                        flag.set(false);
+                        lastFlagChange.set(now);
+                        insertCircuitBreakerStatus(false, now);
+                    } else {
+                        logger.debug("Circuit breaker remains tripped ({} minutes elapsed) avgErrorRate={}, sumTotal={} (need <5.0 and >{}).", minutesSinceTrip, avgErrorRate, sumTotal, minTotal);
+                    }
+                }
+            }
+        }
     }
 
     private void insertCircuitBreakerStatus(boolean flagValue, Instant ts) {
