@@ -38,6 +38,16 @@ This is a starter Spring Boot (Java 21) project demonstrating a Kafka Streams to
 - The project uses a global grouping (single key) to compute error rate across all messages. If you want per-product or per-client metrics, change grouping key accordingly.
 - For production, consider persisting circuit breaker state in a compacted Kafka topic or distributed store for multi-instance safety.
 
+## Persistence Layer (Spring Data JDBC)
+Originally set up with Spring Data JPA / Hibernate, the project now uses Spring Data JDBC for a simpler, more explicit data model:
+- No JPA entity manager, lazy loading, or dirty checking. Each repository method executes direct SQL via Spring Data JDBC.
+- Entities (`ErrorStats`, `CircuitBreakerStatus`) map directly to tables using `@Table` and `@Column` from `spring-data-relational`.
+- Identity columns defined in `sql/create_tables.sql` are used; the `id`/`seqnum` fields are populated on insert.
+- Custom queries currently rely on derived method names (e.g. `findTop5ByOrderByEndTimeDesc`). If you need more complex queries, add `@Query` methods or a lightweight custom repository.
+- Transactions use Spring's `@Transactional` (backed by `DataSourceTransactionManager`). Keep transactions brief—no persistence context caching.
+
+If you reintroduce JPA, revert dependencies (`spring-boot-starter-data-jpa`) and restore `spring.jpa.*` settings in `application.yml`.
+
 
 ## Pushing to GitHub
 
