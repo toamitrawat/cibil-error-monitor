@@ -1,27 +1,27 @@
 package com.example.cibil.entity;
 
-import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.data.relational.core.mapping.Column;
 
-@Entity
-@Table(name = "circuitbreaker_status")
+@Table("circuitbreaker_status")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class CircuitBreakerStatus {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "seqnum")
-    private Long seqnum;
+    @Column("seqnum")
+    private Long seqnum; // identity column
 
-    @Column(name = "flag")
+    @Column("flag")
     private String flag; // 'Y' or 'N'
 
-    @Column(name = "timestamp")
+    @Column("timestamp")
     private OffsetDateTime timestamp;
 }
