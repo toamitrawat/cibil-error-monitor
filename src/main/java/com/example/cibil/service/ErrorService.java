@@ -39,6 +39,15 @@ public class ErrorService {
     @Value("${app.circuit.threshold.min-total:10}")
     private long minTotal;
 
+    @Value("${app.circuit.reset.interval-minutes:15}")
+    private long resetIntervalMinutes;
+
+    @Value("${app.circuit.reset.error-rate:5.0}")
+    private double resetErrorRate;
+
+    @Value("${app.circuit.reset.min-total:10}")
+    private long resetMinTotal;
+
     // Lombok @RequiredArgsConstructor generates constructor
 
     @Transactional
@@ -83,7 +92,7 @@ public class ErrorService {
             logger.warn("Circuit breaker tripped based on last 5 intervals! avgErrorRate={}, sumTotal={}", avgErrorRate, sumTotal);
             flag.set(true);
             lastFlagChange.set(now);
-            nextResetCheck.set(now.plus(Duration.ofMinutes(15)));
+            nextResetCheck.set(now.plus(Duration.ofMinutes(resetIntervalMinutes)));
             insertCircuitBreakerStatus(true, now);
         }
         // Scheduled reset attempts every 15 minutes while tripped
@@ -98,23 +107,23 @@ public class ErrorService {
             if (lastY != null && lastY.getTimestamp() != null) {
                 Instant lastTrip = lastY.getTimestamp().toInstant();
                 long minutesSinceTrip = Duration.between(lastTrip, now).toMinutes();
-                if (minutesSinceTrip < 15) {
+                if (minutesSinceTrip < resetIntervalMinutes) {
                     // ensure first attempt aligns with 15 min mark
-                    Instant first = lastTrip.plus(Duration.ofMinutes(15));
+                    Instant first = lastTrip.plus(Duration.ofMinutes(resetIntervalMinutes));
                     nextResetCheck.set(first);
                     logger.debug("Breaker tripped; only {} minutes since trip. First reset attempt scheduled at {}", minutesSinceTrip, first);
                     return;
                 }
-                if (avgErrorRate < 5.0 && sumTotal > minTotal) {
+                if (avgErrorRate < resetErrorRate && sumTotal > resetMinTotal) {
                     logger.info("Circuit breaker reset after {} minutes: avgErrorRate={}, sumTotal={}", minutesSinceTrip, avgErrorRate, sumTotal);
                     flag.set(false);
                     lastFlagChange.set(now);
                     nextResetCheck.set(Instant.EPOCH);
                     insertCircuitBreakerStatus(false, now);
                 } else {
-                    Instant nextAttempt = now.plus(Duration.ofMinutes(15));
+                    Instant nextAttempt = now.plus(Duration.ofMinutes(resetIntervalMinutes));
                     nextResetCheck.set(nextAttempt);
-                    logger.debug("Circuit breaker remains tripped (attempt at {}): avgErrorRate={}, sumTotal={} (need <5.0 and >{}). Next attempt at {}", now, avgErrorRate, sumTotal, minTotal, nextAttempt);
+                    logger.debug("Circuit breaker remains tripped (attempt at {}): avgErrorRate={}, sumTotal={} (need <{} and >{}). Next attempt at {}", now, avgErrorRate, sumTotal, resetErrorRate, resetMinTotal, nextAttempt);
                 }
             }
         }

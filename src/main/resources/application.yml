@@ -42,5 +42,9 @@ app:
     threshold:
       error-rate: 50.0
       min-total: 10
+    reset:
+      interval-minutes: 15
+      error-rate: 5.0
+      min-total: 10
   kafka:
     error-topic: error-monitor-events
