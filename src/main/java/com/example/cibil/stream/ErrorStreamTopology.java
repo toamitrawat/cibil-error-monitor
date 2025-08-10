@@ -30,7 +30,7 @@ public class ErrorStreamTopology {
     private final ObjectMapper mapper = new ObjectMapper();
     private final ErrorService errorService;
 
-    @Value("${app.kafka.error-topic:Error-topic}")
+    @Value("${app.kafka.error-topic:error-monitor-events}")
     private String errorTopic;
 
     @Value("${app.db.retry.max-attempts:3}")

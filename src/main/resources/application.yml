@@ -48,3 +48,10 @@ app:
       min-total: 10
   kafka:
     error-topic: error-monitor-events
+  db:
+    retry:
+      max-attempts: 3        # default from @Value in ErrorStreamTopology
+      backoff-ms: 500        # default from @Value in ErrorStreamTopology
+  aggregation:
+    max-buffered-minutes: 180  # default (3 hours) from @Value in ErrorStreamTopology
+    on-overflow: DROP          # DROP or FAIL; default from code
