@@ -1,16 +1,20 @@
 # Cibil Error Monitor (Maven)
 
-This is a starter Spring Boot (Java 21) project demonstrating a Kafka Streams topology that:
-- consumes JSON messages from Kafka topic `Error-topic`
-- computes error statistics over a 5-minute sliding window with 1-minute advance
-- writes aggregate stats into `error_stats` Oracle table
-- toggles `circuitbreaker_status` flag when failure rate > 50% (trip) and resets to false after 15 minutes of sustained low error rate (<=5%)
+This is a Spring Boot (Java 21) project implementing a Kafka Streams topology that:
+- Consumes JSON messages from a Kafka topic (default `error-monitor-events`).
+- Performs custom per-minute (wall-clock) aggregation of success vs failure counts with gap (zero) minute handling.
+- Persists one row per minute into the `error_stats` Oracle table (including empty minutes to maintain a contiguous timeline).
+- Evaluates a circuit breaker using the last 5 persisted minutes’ average error rate (trip & reset logic) and logs transitions in `circuitbreaker_status`.
 
 ## What you get
-- Maven project
-- Docker Compose to run Kafka locally (for testing)
+- Maven project (Java 21 / Spring Boot 3)
+- Kafka Streams based custom minute aggregation (no high-level sliding window API)
+- Backpressure controls: bounded in-memory minute buffer with DROP or FAIL policy
+- Retry logic for DB writes with linear backoff
+- Dockerfile + (minimal) docker-compose
 - SQL scripts to create Oracle tables
 - Sample producer script (bash) to push test messages
+- Documentation in `docs/` (overview, quick start, configuration)
 
 ## How to run
 1. Start Kafka locally:
@@ -34,9 +38,14 @@ This is a starter Spring Boot (Java 21) project demonstrating a Kafka Streams to
    ./scripts/produce-sample.sh
    ```
 
+## Documentation
+- High-level architecture & design: `docs/OVERVIEW.md`
+- Quick start checklist: `docs/QUICKSTART.md`
+- Configuration reference: `docs/CONFIGURATION.md`
+
 ## Notes
-- The project uses a global grouping (single key) to compute error rate across all messages. If you want per-product or per-client metrics, change grouping key accordingly.
-- For production, consider persisting circuit breaker state in a compacted Kafka topic or distributed store for multi-instance safety.
+- The topology intentionally forces a single partition (key=`ALL`) to guarantee exactly one writer instance. Adjust if you need parallelism.
+- For multi-instance breaker visibility, you may externalize breaker state to a compacted topic or a shared cache.
 
 ## Persistence Layer (Spring Data JDBC)
 Originally set up with Spring Data JPA / Hibernate, the project now uses Spring Data JDBC for a simpler, more explicit data model:
@@ -47,6 +56,9 @@ Originally set up with Spring Data JPA / Hibernate, the project now uses Spring 
 - Transactions use Spring's `@Transactional` (backed by `DataSourceTransactionManager`). Keep transactions brief—no persistence context caching.
 
 If you reintroduce JPA, revert dependencies (`spring-boot-starter-data-jpa`) and restore `spring.jpa.*` settings in `application.yml`.
+
+## License
+See `LICENSE` for details.
 
 
 ## Pushing to GitHub
